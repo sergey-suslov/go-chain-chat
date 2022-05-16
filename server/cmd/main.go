@@ -18,7 +18,7 @@ func main() {
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		controllers.StartClient(chat, w, r)
 	})
-	log.Println("Starting a server")
+	log.Println("Starting a server", *addr)
 	err := http.ListenAndServe(*addr, nil)
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)

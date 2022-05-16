@@ -23,11 +23,22 @@ func (c *Chat) Start() {
 	for {
 		select {
 		case client := <-c.conenct:
+			println("Connecting client", client)
 			c.clients[client] = true
 		case client := <-c.disconenct:
+			println("Disconnecting client", client)
 			if _, ok := c.clients[client]; ok {
 				delete(c.clients, client)
 				close(client.send)
+			}
+		case message := <-c.broadcast:
+			for client := range c.clients {
+				select {
+				case client.send <- message:
+				default:
+					close(client.send)
+					delete(c.clients, client)
+				}
 			}
 		}
 	}

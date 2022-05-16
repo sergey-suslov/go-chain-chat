@@ -27,6 +27,8 @@ func (c *Client) startWrite() {
 	for {
 		select {
 		case message, ok := <-c.send:
+			println("Message")
+			println(message)
 			if !ok {
 				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
@@ -49,6 +51,7 @@ func (c *Client) startRead() {
 	// c.conn.SetPongHandler(func(string) error { c.conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
 	for {
 		_, message, err := c.conn.ReadMessage()
+		println("Message", message)
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				log.Printf("error: %v", err)
