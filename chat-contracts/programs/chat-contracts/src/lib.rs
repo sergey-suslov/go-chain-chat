@@ -26,15 +26,24 @@ pub mod chat_contracts {
     }
 
     pub fn buy_pass(ctx: Context<BuyPass>, amount: u64) -> Result<()> {
-        let transaction =
-            system_instruction::transfer(&ctx.accounts.user.key(), ctx.program_id, amount);
-        let _ = program::invoke(
+        let transaction = system_instruction::transfer(
+            &ctx.accounts.user.key(),
+            &ctx.accounts.chat_account.key(),
+            amount,
+        );
+        program::invoke(
             &transaction,
             &[
                 ctx.accounts.user.to_account_info(),
-                ctx.accounts.chat_program.to_account_info(),
+                ctx.accounts.chat_account.to_account_info(),
             ],
-        );
+        )?;
+
+        ctx.accounts.chat_account.users.push(UserAccess {
+            address: ctx.accounts.user.key(),
+            access_until: Clock::get()?.unix_timestamp,
+        });
+
         Ok(())
     }
 }
@@ -70,7 +79,6 @@ pub struct CheckPass<'info> {
 pub struct BuyPass<'info> {
     #[account(mut)]
     pub chat_account: Account<'info, ChatAccount>,
-    pub chat_program: Program<'info, ChatContracts>,
     #[account(mut)]
     pub user: Signer<'info>,
     pub system_program: Program<'info, System>,
