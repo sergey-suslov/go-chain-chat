@@ -1,15 +1,16 @@
+use std::ops::Deref;
+
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
     entrypoint::ProgramResult,
     msg,
-    program::{invoke, invoke_signed},
+    program::invoke,
     program_error::ProgramError,
     pubkey::Pubkey,
     sysvar::{rent::Rent, Sysvar},
 };
 
-use crate::state::Counter;
 use crate::{instruction::CounterInstruction, state::ChatAccount};
 
 pub struct Processor {}
@@ -30,10 +31,10 @@ impl Processor {
                 msg!("Instruction: Increment");
                 let accounts_iter = &mut accounts.iter();
                 let counter_ai = next_account_info(accounts_iter)?;
-                let mut counter = Counter::try_from_slice(&counter_ai.data.borrow())?;
-                counter.count += 1;
-                msg!("Updating count {}", counter.count);
-                counter.serialize(&mut *counter_ai.data.borrow_mut())?;
+                // let mut counter = Counter::try_from_slice(&counter_ai.data.borrow_mut())?;
+                // counter.count += 1;
+                // msg!("Updating count {}", counter.count);
+                // counter.serialize(&mut *counter_ai.data.borrow_mut())?;
             }
             CounterInstruction::Init => {
                 msg!("Instruction: Init");
@@ -52,6 +53,18 @@ impl Processor {
                     ),
                     &[payer.clone(), account.clone(), system_program.clone()],
                 )?;
+                let init_account = ChatAccount {
+                    is_initialized: true,
+                    users: vec![(*payer.key)],
+                };
+                msg!("Account from{:?}", init_account);
+                let mut temp: Vec<u8> = Vec::new();
+                init_account.serialize(&mut temp)?;
+                let mut data = account.try_borrow_mut_data()?;
+                let mut to_write = &mut *data;
+                init_account.serialize(to_write)?;
+                msg!("Account initiated {:?}", data);
+                msg!("Account parsed {:?}", account.data);
             }
             CounterInstruction::BuyPass => {
                 msg!("Instruction: BuyPass");
@@ -60,13 +73,26 @@ impl Processor {
                 let account = next_account_info(accounts_iter)?;
                 let system_program = next_account_info(accounts_iter)?;
 
+                msg!("Invoking transfer");
                 invoke(
                     &solana_program::system_instruction::transfer(payer.key, account.key, 1000),
                     &[payer.clone(), account.clone(), system_program.clone()],
                 )?;
-                let mut account_parsed = ChatAccount::try_from_slice(&account.data.borrow())?;
+                msg!("Transfer succeeded");
+
+                let mut account_parsed = {
+                    let data = &*account.data.try_borrow().unwrap();
+                    let mut data_as_ref_mut = data.as_ref();
+                    msg!("Parsing account {:?}", account.data);
+                    ChatAccount::deserialize(&mut data_as_ref_mut)?
+                };
+                // let mut account_parsed =
+                //     ChatAccount::try_from_slice(&account.try_borrow_mut_data()?)?;
+
+                msg!("Parsed account {:?}", account_parsed.clone());
                 account_parsed.users.push(*payer.key);
-                account_parsed.serialize(&mut *account.data.borrow_mut())?;
+                let data_mut = &mut *account.data.try_borrow_mut().unwrap();
+                account_parsed.serialize(data_mut)?;
             }
         }
         Ok(())

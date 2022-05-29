@@ -39,7 +39,7 @@ const main = async () => {
       /** Amount of lamports to transfer to the created account */
       lamports: await connection.getMinimumBalanceForRentExemption(8),
       /** Amount of space in bytes to allocate to the created account */
-      space: 8,
+      space: 9,
       /** Public key of the program to assign as the owner of the created account */
       programId: programId,
     });
@@ -158,22 +158,54 @@ const testBuyPass = async () => {
   let tx = new Transaction();
   const chatAccount = new Keypair();
   let chatAccountKey = chatAccount.publicKey;
-  const createAccountIx = SystemProgram.createAccount({
-    fromPubkey: feePayer.publicKey,
-    newAccountPubkey: chatAccountKey,
-    /** Amount of lamports to transfer to the created account */
-    lamports: await connection.getMinimumBalanceForRentExemption(500),
-    /** Amount of space in bytes to allocate to the created account */
-    space: 500,
-    /** Public key of the program to assign as the owner of the created account */
-    programId: programId,
-  });
+  // const createAccountIx = SystemProgram.createAccount({
+  //   fromPubkey: feePayer.publicKey,
+  //   newAccountPubkey: chatAccountKey,
+  //   /** Amount of lamports to transfer to the created account */
+  //   lamports: await connection.getMinimumBalanceForRentExemption(500),
+  //   /** Amount of space in bytes to allocate to the created account */
+  //   space: 500,
+  //   /** Public key of the program to assign as the owner of the created account */
+  //   programId: programId,
+  // });
   console.log("Chat account created");
-  tx.add(createAccountIx);
+  const initTx = new Transaction();
+  let initIx = new TransactionInstruction({
+    keys: [
+      {
+        pubkey: feePayer.publicKey,
+        isSigner: true,
+        isWritable: true,
+      },
+      {
+        pubkey: chatAccount.publicKey,
+        isSigner: false,
+        isWritable: true,
+      },
+      {
+        pubkey: SystemProgram.programId,
+        isSigner: false,
+        isWritable: true,
+      },
+    ],
+    programId: programId,
+    data: Buffer.from(new Uint8Array([1])),
+  });
+  initTx.add(initIx);
 
   const idx = Buffer.from(new Uint8Array([2]));
 
   let signers = [feePayer, chatAccount];
+
+  await sendAndConfirmTransaction(connection, initTx, signers, {
+    skipPreflight: true,
+    preflightCommitment: "confirmed",
+    commitment: "finalized",
+  });
+  const chatAccountFetchedFirst = await connection.getAccountInfo(chatAccountKey);
+  const dataFirst = new BN(chatAccountFetchedFirst.data, "le");
+  console.log("Chat Account:", chatAccountKey.toBase58());
+  console.log("Chat Account Data:", dataFirst.toArray());
 
   let incrIx = new TransactionInstruction({
     keys: [
