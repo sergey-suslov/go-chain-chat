@@ -1,4 +1,5 @@
 import BN from "bn.js";
+import { deserializeUnchecked } from "borsh";
 import {
   Connection,
   sendAndConfirmTransaction,
@@ -8,6 +9,31 @@ import {
   PublicKey,
   TransactionInstruction,
 } from "@solana/web3.js";
+
+// Flexible class that takes properties and imbues them
+// to the object instance
+class Assignable {
+  constructor(properties) {
+    Object.keys(properties).map((key) => {
+      return (this[key] = properties[key]);
+    });
+  }
+}
+
+export class AccoundData extends Assignable {}
+
+const dataSchema = new Map([
+  [
+    AccoundData,
+    {
+      kind: "struct",
+      fields: [
+        ["is_initialized", "bool"],
+        ["users", ["u8"]],
+      ],
+    },
+  ],
+]);
 
 const main = async () => {
   var args = process.argv.slice(2);
@@ -142,11 +168,9 @@ const testInit = async () => {
 
 const testBuyPass = async () => {
   var args = process.argv.slice(2);
-  // args[0]: Program ID
-  // args[1] (Optional): Counter buffer account
   const programId = new PublicKey(args[0]);
 
-  console.log(programId.toBase58());
+  console.log("Testing program:", programId.toBase58());
   const connection = new Connection("http://127.0.0.1:8899");
   // const connection = new Connection("https://api.devnet.solana.com/");
   const feePayer = new Keypair();
@@ -158,17 +182,6 @@ const testBuyPass = async () => {
   let tx = new Transaction();
   const chatAccount = new Keypair();
   let chatAccountKey = chatAccount.publicKey;
-  // const createAccountIx = SystemProgram.createAccount({
-  //   fromPubkey: feePayer.publicKey,
-  //   newAccountPubkey: chatAccountKey,
-  //   /** Amount of lamports to transfer to the created account */
-  //   lamports: await connection.getMinimumBalanceForRentExemption(500),
-  //   /** Amount of space in bytes to allocate to the created account */
-  //   space: 500,
-  //   /** Public key of the program to assign as the owner of the created account */
-  //   programId: programId,
-  // });
-  console.log("Chat account created");
   const initTx = new Transaction();
   let initIx = new TransactionInstruction({
     keys: [
@@ -195,17 +208,13 @@ const testBuyPass = async () => {
 
   const idx = Buffer.from(new Uint8Array([2]));
 
-  let signers = [feePayer, chatAccount];
-
-  await sendAndConfirmTransaction(connection, initTx, signers, {
+  await sendAndConfirmTransaction(connection, initTx, [feePayer, chatAccount], {
     skipPreflight: true,
     preflightCommitment: "confirmed",
     commitment: "finalized",
   });
-  const chatAccountFetchedFirst = await connection.getAccountInfo(chatAccountKey);
-  const dataFirst = new BN(chatAccountFetchedFirst.data, "le");
+  console.log("Chat account initialized");
   console.log("Chat Account:", chatAccountKey.toBase58());
-  console.log("Chat Account Data:", dataFirst.toArray());
 
   let incrIx = new TransactionInstruction({
     keys: [
@@ -230,11 +239,17 @@ const testBuyPass = async () => {
   });
   tx.add(incrIx);
 
-  let txid = await sendAndConfirmTransaction(connection, tx, signers, {
-    skipPreflight: true,
-    preflightCommitment: "confirmed",
-    commitment: "finalized",
-  });
+  let txid = await sendAndConfirmTransaction(
+    connection,
+    tx,
+    [feePayer, chatAccount],
+    {
+      skipPreflight: true,
+      preflightCommitment: "confirmed",
+      commitment: "finalized",
+    }
+  );
+  console.log("Bought ticket for", feePayer.publicKey);
   console.log(`https://explorer.solana.com/tx/${txid}?cluster=devnet`);
 
   const chatAccountFetched = await connection.getAccountInfo(chatAccountKey);
@@ -242,6 +257,9 @@ const testBuyPass = async () => {
   console.log("Chat Account:", chatAccountKey.toBase58());
   console.log("Chat Account Data:", data.toArray());
   console.log("Chat Account Balance:", chatAccountFetched.lamports);
+
+  const deser = deserializeUnchecked(dataSchema, AccoundData, chatAccountFetched.data);
+  console.log('Deser', deser)
 };
 
 testBuyPass()

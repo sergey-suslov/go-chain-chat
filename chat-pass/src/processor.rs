@@ -3,6 +3,7 @@ use std::ops::Deref;
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
+    borsh::try_from_slice_unchecked,
     entrypoint::ProgramResult,
     msg,
     program::invoke,
@@ -61,8 +62,7 @@ impl Processor {
                 let mut temp: Vec<u8> = Vec::new();
                 init_account.serialize(&mut temp)?;
                 let mut data = account.try_borrow_mut_data()?;
-                let mut to_write = &mut *data;
-                init_account.serialize(to_write)?;
+                init_account.serialize(&mut *data)?;
                 msg!("Account initiated {:?}", data);
                 msg!("Account parsed {:?}", account.data);
             }
@@ -82,9 +82,9 @@ impl Processor {
 
                 let mut account_parsed = {
                     let data = &*account.data.try_borrow().unwrap();
-                    let mut data_as_ref_mut = data.as_ref();
+                    let data_as_ref_mut = data;
                     msg!("Parsing account {:?}", account.data);
-                    ChatAccount::deserialize(&mut data_as_ref_mut)?
+                    try_from_slice_unchecked::<ChatAccount>(data_as_ref_mut)?
                 };
                 // let mut account_parsed =
                 //     ChatAccount::try_from_slice(&account.try_borrow_mut_data()?)?;
@@ -93,6 +93,7 @@ impl Processor {
                 account_parsed.users.push(*payer.key);
                 let data_mut = &mut *account.data.try_borrow_mut().unwrap();
                 account_parsed.serialize(data_mut)?;
+                msg!("Written account {:?}", account.data);
             }
         }
         Ok(())

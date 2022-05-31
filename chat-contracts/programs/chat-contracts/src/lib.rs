@@ -26,10 +26,11 @@ pub mod chat_contracts {
     }
 
     pub fn buy_pass(ctx: Context<BuyPass>, amount: u64) -> Result<()> {
+        msg!("Amount {}", amount);
         let transaction = system_instruction::transfer(
             &ctx.accounts.user.key(),
             &ctx.accounts.chat_account.key(),
-            amount,
+            1000,
         );
         program::invoke(
             &transaction,
@@ -62,7 +63,7 @@ pub struct ChatAccount {
 #[derive(Accounts)]
 pub struct Initialize<'info> {
     // TODO adjust space
-    #[account(init, payer = user, space = 9000)]
+    #[account(init, payer = user, space = 500)]
     pub chat_account: Account<'info, ChatAccount>,
     #[account(mut)]
     pub user: Signer<'info>,

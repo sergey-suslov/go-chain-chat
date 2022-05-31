@@ -29,6 +29,18 @@ describe("chat-contracts", () => {
 
   it.only("should return true", async () => {
     const chatKeypair = anchor.web3.Keypair.generate();
+    const user = (program.provider as anchor.AnchorProvider).wallet;
+    console.log("Chat", chatKeypair.publicKey);
+    console.log("User", user.publicKey);
+    let userAccount = await program.provider.connection.getAccountInfo(
+      user.publicKey
+    );
+    let programAccount = await program.provider.connection.getAccountInfo(
+      program.programId
+    );
+    console.log("User's lamports", userAccount.lamports);
+    console.log("Program's lamports", programAccount.lamports);
+    console.log("Initialize");
     await program.methods
       .initialize()
       .accounts({
@@ -37,14 +49,19 @@ describe("chat-contracts", () => {
       .signers([chatKeypair])
       .rpc();
     // Add your test here.
-    const user = (program.provider as anchor.AnchorProvider).wallet;
-    console.log("Chat", chatKeypair.publicKey);
-    console.log("User", user.publicKey);
-    console.log("Buy");
-    let programAccount = await program.provider.connection.getAccountInfo(
+    userAccount = await program.provider.connection.getAccountInfo(
+      user.publicKey
+    );
+    programAccount = await program.provider.connection.getAccountInfo(
       program.programId
     );
-    console.log("Program account", programAccount.lamports);
+    let chatAccount = await program.provider.connection.getAccountInfo(
+      chatKeypair.publicKey
+    );
+    console.log("User's lamports", userAccount.lamports);
+    console.log("Program's lamports", programAccount.lamports);
+    console.log("Chat's lamports", chatAccount.lamports);
+    console.log("Buy");
     let tx = await program.methods
       .buyPass(new BN(10000000))
       .accounts({
@@ -63,17 +80,17 @@ describe("chat-contracts", () => {
     expect(chatState.users).to.have.length(1);
     expect(user.publicKey.equals(chatState.users[0].address)).to.be.true;
 
+    userAccount = await program.provider.connection.getAccountInfo(
+      user.publicKey
+    );
     programAccount = await program.provider.connection.getAccountInfo(
       program.programId
     );
-    console.log("Program account", programAccount);
-    tx = await program.methods
-      .checkPass(user.publicKey)
-      .accounts({
-        chatAccount: chatKeypair.publicKey,
-      })
-      .signers([])
-      .rpc();
-    console.log("Your transaction signature", tx);
+    chatAccount = await program.provider.connection.getAccountInfo(
+      chatKeypair.publicKey
+    );
+    console.log("User's lamports", userAccount.lamports);
+    console.log("Program's lamports", programAccount.lamports);
+    console.log("Chat's lamports", chatAccount.lamports);
   });
 });
